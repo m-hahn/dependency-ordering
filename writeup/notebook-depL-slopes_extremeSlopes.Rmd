@@ -1,0 +1,99 @@
+---
+title: Exploring Word Order Predictions of Theories of Communicatively Efficient Language Production
+author: Michael Hahn
+date: March 2018
+output:
+  html_document:
+    toc: true
+---
+
+
+
+<style>
+img {
+    max-width: 250%;
+
+    /* other options:
+    max-width: none;
+    max-width: 700px;
+    max-width: 9in;
+    max-width: 25cm;
+    etc
+    */
+}
+</style>
+
+
+
+```{r, echo=FALSE}
+source('readData.r')
+```
+
+```{r, echo=FALSE}
+source('processRealWeights.r')
+data = data %>% filter(Head != "PUNCT", Dependent != "PUNCT")
+data = data %>% filter(Counter > 20000)
+
+```
+
+
+# Random Slopes for Dependency Length
+
+
+Throughout this section, colors indicate the degree to which the dependency is head-final in the language, measured as a logit (positive = more head-final than head-initial).
+
+Finding: When controlling for surprisal (the `All' models), strong effects of Dependency Length occur mostly for head-initial dependencies.
+
+
+
+```{r, echo=FALSE}
+DepL_slopes = data %>% filter(!is.na(Mean_Slope_DepLength)) %>% select(TotalCount, TotalCountCoarse, Counter, RegType, ModelName, FileName, Language, FileName, Head, Dependency, CoarseDependency, Dependent, Mean_Slope_DepLength, Var_Slope_DepLength, Count, Real_DH_Mean, Real_Distance_Mean) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+```
+
+## Extreme Random Slopes
+Strongly negative and strongly positive slopes (As before, negative =stronger effect of dependency length, positive=weaker effect):
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_slopes$Language)) {
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg = DepL_slopes %>% filter(Language==language)
+ for(regtype in unique(agg$RegType)) {
+  cat(regtype)
+  cat("\n")
+  agg2 = (agg %>% filter(RegType == regtype))
+  for(model in unique(agg2$ModelName)) {
+     agg3 = agg2 %>% filter(ModelName == model)
+     agg3 = agg3[order(agg3$Mean_Slope_DepLength),]
+     agg3 = agg3 %>% mutate(X=paste(Head,Dependency,Dependent, sep="\n"))
+     for(filename in unique(agg3$FileName)) {
+       agg4 = agg3 %>% filter(FileName == filename)
+       agg4$X = factor(agg4$X, levels=agg4$X)
+       plot = ggplot(agg4[(1:min(nrow(agg4),30)),], aes(x=X,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+         geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+         facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+         geom_bar(stat="identity", position=dodge)
+       print(plot)
+
+       plot = ggplot(agg4[(1:min(nrow(agg4),30)),], aes(x=X,y=Mean_Slope_DepLength, fill=Real_Distance_Mean)) +
+         geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+         facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+         geom_bar(stat="identity", position=dodge)
+       print(plot)
+ 
+     
+       plot = ggplot(agg4[(max(0,(nrow(agg4)-30)):nrow(agg4)),], aes(x=X,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+         geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+         facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+         geom_bar(stat="identity", position=dodge)
+       print(plot)
+}
+}
+}
+}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+
