@@ -1,0 +1,379 @@
+---
+title: Exploring Word Order Predictions of Theories of Communicatively Efficient Language Production
+author: Michael Hahn
+date: March 2018
+output:
+  html_document:
+    toc: true
+---
+
+
+
+<style>
+img {
+    max-width: 250%;
+
+    /* other options:
+    max-width: none;
+    max-width: 700px;
+    max-width: 9in;
+    max-width: 25cm;
+    etc
+    */
+}
+</style>
+
+
+
+```{r, echo=FALSE}
+source('readData.r')
+```
+
+```{r, echo=FALSE}
+source('processRealWeights.r')
+data = data %>% filter(Head != "PUNCT", Dependent != "PUNCT")
+data = data %>% filter(Counter > 20000)
+
+```
+
+
+# Random Slopes for Dependency Length
+
+
+Throughout this section, colors indicate the degree to which the dependency is head-final in the language, measured as a logit (positive = more head-final than head-initial).
+
+Finding: When controlling for surprisal (the `All' models), strong effects of Dependency Length occur mostly for head-initial dependencies.
+
+
+
+```{r, echo=FALSE}
+DepL_slopes = data %>% filter(!is.na(Mean_Slope_DepLength)) %>% select(TotalCount, TotalCountCoarse, Counter, RegType, ModelName, FileName, Language, FileName, Head, Dependency, CoarseDependency, Dependent, Mean_Slope_DepLength, Var_Slope_DepLength, Count, Real_DH_Mean, Real_Distance_Mean) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+```
+
+## Extreme Random Slopes
+Strongly negative and strongly positive slopes (As before, negative =stronger effect of dependency length, positive=weaker effect):
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_slopes$Language)) {
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg = DepL_slopes %>% filter(Language==language)
+ for(regtype in unique(agg$RegType)) {
+  cat(regtype)
+  cat("\n")
+  agg2 = (agg %>% filter(RegType == regtype))
+  for(model in unique(agg2$ModelName)) {
+     agg3 = agg2 %>% filter(ModelName == model)
+     agg3 = agg3[order(agg3$Mean_Slope_DepLength),]
+     agg3 = agg3 %>% mutate(X=paste(Head,Dependency,Dependent, sep="\n"))
+     for(filename in unique(agg3$FileName)) {
+       agg4 = agg3 %>% filter(FileName == filename)
+       agg4$X = factor(agg4$X, levels=agg4$X)
+       plot = ggplot(agg4[(1:min(nrow(agg4),30)),], aes(x=X,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+         geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+         facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+         geom_bar(stat="identity", position=dodge)
+       print(plot)
+
+       plot = ggplot(agg4[(1:min(nrow(agg4),30)),], aes(x=X,y=Mean_Slope_DepLength, fill=Real_Distance_Mean)) +
+         geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+         facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+         geom_bar(stat="identity", position=dodge)
+       print(plot)
+ 
+     
+       plot = ggplot(agg4[(max(0,(nrow(agg4)-30)):nrow(agg4)),], aes(x=X,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+         geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+         facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+         geom_bar(stat="identity", position=dodge)
+       print(plot)
+}
+}
+}
+}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+## Average Slopes by Dependent
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+DepL_slopes_by_Dependent = DepL_slopes %>% group_by(Counter, RegType, ModelName, FileName, Language, FileName, Dependent) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+DepL_slopes_by_Dependent = as.data.frame(DepL_slopes_by_Dependent)
+#DepL_slopes_by_Dependent[order(DepL_slopes_by_Dependent$Slope_DepLength_t),]
+
+#cor(DepL_slopes_by_Dependent$Real_DH_Mean, DepL_slopes_by_Dependent$Mean_Slope_DepLength)
+#[1] 0.7085587
+#DepL_slopesSig = DepL_slopes %>% filter(abs(Slope_DepLength_t) > 2)
+#cor(DepL_slopesSig$Real_DH_Mean, DepL_slopesSig$Mean_Slope_DepLength)
+#[1] 0.6987075
+```
+
+```{r, echo=FALSE, fig.width=15, fig.height=5}
+for(language in unique(DepL_slopes_by_Dependent$Language)) {
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg = DepL_slopes_by_Dependent %>% filter(Language==language)
+  agg = agg %>% filter(Counter > 20000)
+ for(regtype in unique(agg$RegType)) {
+  agg2 = (agg %>% filter(RegType == regtype))
+  for(filename in unique(agg2$FileName)) {
+     agg3 = agg2 %>% filter(FileName == filename)
+     agg3 = agg3[order(agg3$Mean_Slope_DepLength),]
+     plot = ggplot(agg3, aes(x=Dependent,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+       geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+       facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+       geom_bar(stat="identity", position=dodge)
+     print(plot)
+     plot = ggplot(agg3, aes(x=Dependent,y=Mean_Slope_DepLength, fill=Real_Distance_Mean)) +
+       geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+       facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+       geom_bar(stat="identity", position=dodge)
+     print(plot)
+
+   }
+}
+}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+
+
+
+
+## Average Slopes by Head
+
+It doesn't seem like there is much to see in this section.
+
+```{r, echo=FALSE}
+DepL_slopes_by_Head = DepL_slopes %>% group_by(Counter, RegType, ModelName, FileName, Language, FileName, Head) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+DepL_slopes_by_Head = as.data.frame(DepL_slopes_by_Head)
+#DepL_slopes_by_Head[order(DepL_slopes_by_Head$Slope_DepLength_t),]
+```
+
+```{r, echo=FALSE, fig.width=15, fig.height=5}
+for(language in unique(DepL_slopes_by_Head$Language)) {
+  agg = DepL_slopes_by_Head %>% filter(Language==language)
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+ for(regtype in unique(agg$RegType)) {
+  agg2 = (agg %>% filter(RegType == regtype))
+  for(filename in unique(agg2$FileName)) {
+    agg3 = agg2 %>% filter(FileName == filename)
+    agg3 = agg3[order(agg3$Mean_Slope_DepLength),]
+    plot = ggplot(agg3, aes(x=Head,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+      geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+      facet_wrap(~ Language + RegType + ModelName + FileName + Counter) +
+      geom_bar(stat="identity", position=dodge)
+    print(plot)
+}
+}
+}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+
+
+
+
+## Average Slopes by Dependency
+
+Only 20 strongest coefficients shown.
+```{r, echo=FALSE}
+DepL_slopes_by_CoarseDependency = DepL_slopes %>% group_by(Counter, RegType, ModelName, FileName, Language, FileName, CoarseDependency) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+DepL_slopes_by_CoarseDependency = as.data.frame(DepL_slopes_by_CoarseDependency)
+#DepL_slopes_by_CoarseDependency[order(DepL_slopes_by_CoarseDependency$Slope_DepLength_t),]
+#DepL_slopes_by_CoarseDependency[order(DepL_slopes_by_CoarseDependency$Slope_DepLength_t),] %>% filter(abs(Slope_DepLength_t) > 2)
+
+
+```
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+#for(language in unique(DepL_slopes_by_CoarseDependency$Language)) {
+#  agg = DepL_slopes_by_CoarseDependency %>% filter(Language==language)
+#  cat("\n###########\n")
+#  cat(language)
+#  cat("\n")
+# for(regtype in unique(agg$RegType)) {
+#  agg2 = (agg %>% filter(RegType == regtype))
+#  for(model in unique(agg2$ModelName)) {
+#     cat(language,regtype,model,"\n")
+#     agg3 = agg2 %>% filter(ModelName == model)
+#     for(filename in unique(agg3$FileName)) {
+#        agg4 = agg3 %>% filter(FileName == filename)
+#        agg4 = agg2[order(-abs(agg4$Mean_Slope_DepLength)),]
+#        agg4 = agg4[(1:min(nrow(agg4,30))),]
+#        plot = ggplot(agg4, aes(x=CoarseDependency,y=Mean_Slope_DepLength, fill=Real_DH_Mean)) +
+#          geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+#          facet_wrap(~ Language + RegType + ModelName +  FileName + Counter) +
+#          geom_bar(stat="identity", position=dodge)
+#        print(plot)
+#    }
+#  }
+#}
+#}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_slopes_by_CoarseDependency$Language)) {
+  agg = DepL_slopes_by_CoarseDependency %>% filter(Language==language)
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg3 = data.frame()
+  for(filename in unique(agg$FileName)) {
+        agg4 = agg %>% filter(FileName == filename)
+        agg4 = agg4 %>% mutate(Var_Slope_DepLength = Var_Slope_DepLength / var(Mean_Slope_DepLength), Mean_Slope_DepLength = Mean_Slope_DepLength/sd(Mean_Slope_DepLength))
+        agg3 = rbind(agg3, agg4)
+  }
+  agg3 = agg3[order(-abs(agg3$Count)),]
+#  agg3 = agg3[order(-abs(agg3$Mean_Slope_DepLength)),]
+  agg3 = agg3[(1:min(nrow(agg3),30)),]
+  plot = ggplot(agg3, aes(x=CoarseDependency,y=Mean_Slope_DepLength, color=FileName, fill=Real_DH_Mean)) +
+    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+    facet_wrap(~ Language) +
+    geom_bar(stat="identity", position=dodge)
+  print(plot)
+  plot = ggplot(agg3, aes(x=CoarseDependency,y=Mean_Slope_DepLength, color=FileName, fill=Real_Distance_Mean)) +
+    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+    facet_wrap(~ Language) +
+    geom_bar(stat="identity", position=dodge)
+  print(plot)
+
+  plot = ggplot(agg3, aes(x=CoarseDependency,y=Mean_Slope_DepLength, color=FileName, fill=RegType)) +
+    geom_bar(stat="identity", position=dodge) +
+    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+    facet_wrap(~ Language) 
+  print(plot)
+
+}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+## Across Languages
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+
+agg = rbind(DepL_slopes)
+
+for(filename in unique(agg$FileName)) {
+  belongs = (agg$FileName == filename)
+  fileSD = sd(agg[belongs,]$Mean_Slope_DepLength)
+  agg[belongs,]$Mean_Slope_DepLength = agg[belongs,]$Mean_Slope_DepLength/fileSD
+}
+
+
+agg = agg %>% group_by(Language, RegType, CoarseDependency) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+agg = as.data.frame(agg)
+
+
+
+  plot = ggplot(agg, aes(x=CoarseDependency,y=Mean_Slope_DepLength, fill=RegType, color=Language)) +
+    geom_bar(stat="identity", position=dodge) #+
+#    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25)
+  print(plot)
+
+
+
+
+```
+
+
+
+# Average Slopes by Dependency Triple
+
+Only 20 strongest coefficients shown.
+```{r, echo=FALSE}
+DepL_slopes_by_Dependency = DepL_slopes %>% group_by(Counter, RegType, ModelName, FileName, Language, FileName, Head, Dependent, Dependency) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+DepL_slopes_by_Dependency = as.data.frame(DepL_slopes_by_Dependency)
+```
+
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_slopes_by_Dependency$Language)) {
+  agg = DepL_slopes_by_Dependency %>% filter(Language==language)
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg3 = data.frame()
+  for(filename in unique(agg$FileName)) {
+        agg4 = agg %>% filter(FileName == filename)
+        agg4 = agg4 %>% mutate(Var_Slope_DepLength = Var_Slope_DepLength / var(Mean_Slope_DepLength), Mean_Slope_DepLength = Mean_Slope_DepLength/sd(Mean_Slope_DepLength))
+        agg3 = rbind(agg3, agg4)
+  }
+  agg3 = agg3[order(-abs(agg3$Count)),]
+  agg3 = agg3[(1:min(nrow(agg3),30)),]
+  agg3 = agg3 %>% mutate(Triple = paste(Head, Dependency, Dependent, sep="\t"))
+  plot = ggplot(agg3, aes(x=Triple,y=Mean_Slope_DepLength, color=FileName, fill=Real_DH_Mean)) +
+    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+    facet_wrap(~ Language) +
+    geom_bar(stat="identity", position=dodge)
+  print(plot)
+  plot = ggplot(agg3, aes(x=Triple,y=Mean_Slope_DepLength, color=FileName, fill=Real_Distance_Mean)) +
+    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+    facet_wrap(~ Language) +
+    geom_bar(stat="identity", position=dodge)
+  print(plot)
+
+  plot = ggplot(agg3, aes(x=Triple,y=Mean_Slope_DepLength, color=FileName, fill=RegType)) +
+    geom_bar(stat="identity", position=dodge) +
+    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25) +
+    facet_wrap(~ Language) 
+  print(plot)
+
+}
+#DepL_slopes[order(DepL_slopes$Slope_DepLength_t),]
+#DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+## Across Languages
+
+```{r, echo=FALSE}
+
+agg = rbind(DepL_slopes)
+
+for(filename in unique(agg$FileName)) {
+  belongs = (agg$FileName == filename)
+  fileSD = sd(agg[belongs,]$Mean_Slope_DepLength)
+  agg[belongs,]$Mean_Slope_DepLength = agg[belongs,]$Mean_Slope_DepLength/fileSD
+}
+
+agg = agg %>% mutate(Triple = paste(Head, CoarseDependency, Dependent, sep="\n"))
+
+
+agg = agg %>% group_by(Language, RegType, Triple) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+agg = as.data.frame(agg)
+
+
+  agg = agg[order(-agg$Count),]
+  agg = agg[(1:100),]
+  plot = ggplot(agg, aes(x=Triple,y=Mean_Slope_DepLength, fill=RegType, color=Language)) +
+    geom_bar(stat="identity", position=dodge) #+
+#    geom_errorbar(aes(ymin=Mean_Slope_DepLength-sqrt(abs(Var_Slope_DepLength)),ymax=Mean_Slope_DepLength+sqrt(abs(Var_Slope_DepLength))), position=dodge, width=.25)
+  print(plot)
+
+
+
+
+```
+
+
+
+
+

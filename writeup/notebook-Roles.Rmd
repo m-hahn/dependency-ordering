@@ -1,0 +1,464 @@
+---
+title: Exploring Word Order Predictions of Theories of Communicatively Efficient Language Production
+author: Michael Hahn
+date: March 2018
+output:
+  html_document:
+    toc: true
+---
+
+
+
+<style>
+img {
+    max-width: 300%;
+
+    /* other options:
+    max-width: none;
+    max-width: 700px;
+    max-width: 9in;
+    max-width: 25cm;
+    etc
+    */
+}
+</style>
+
+
+
+```{r, echo=FALSE}
+
+
+weighted.sd = function(vec, weight) {
+  if(length(vec) == 1) {
+     return(NA)
+  }
+  return(sqrt(weighted.mean(vec*vec, weight, na.rm=TRUE) - weighted.mean(vec, weight, na.rm=TRUE)**2))
+}
+
+languages = c('Hebrew', 'Romanian', 'Finnish', 'Danish', 'Old_Church_Slavonic', 'Galician-TreeGal', 'Swedish-LinES', 'Marathi', 'Greek', 'Latin-PROIEL', 'Polish', 'Spanish-AnCora', 'Finnish-FTB', 'Kazakh', 'Arabic', 'Japanese', 'Slovenian', 'Ancient_Greek-PROIEL', 'Latvian', 'Swedish_Sign_Language', 'Coptic', 'Turkish', 'Ancient_Greek', 'Ukrainian', 'Hungarian', 'Russian-SynTagRus', 'Italian-ParTUT', 'Chinese', 'Dutch-LassySmall', 'Italian', 'Bulgarian', 'Irish', 'Romanian-Nonstandard', 'Norwegian-Nynorsk', 'Indonesian', 'Latin-ITTB', 'Tamil', 'French-Sequoia', 'Belarusian', 'Lithuanian', 'Afrikaans', 'Persian', 'Portuguese-BR', 'Croatian', 'Russian', 'English-ParTUT', 'Arabic-NYUAD', 'Estonian', 'Gothic', 'Telugu', 'Czech-CLTT', 'Catalan', 'Dutch', 'French-FTB', 'Spanish', 'English', 'French', 'Galician', 'Slovenian-SST', 'Korean', 'Portuguese', 'Basque', 'German', 'Urdu', 'Hindi', 'Slovak', 'Czech-CAC', 'Italian-PoSTWITA', 'Latin', 'Swedish', 'Vietnamese', 'French-ParTUT', 'Czech', 'Norwegian-Bokmaal', 'North_Sami', 'English-LinES', 'Serbian', 'Czech-FicTree')
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+
+
+options(width=130) 
+
+auto = read.csv("CS_SCR/deps/manual_output/auto-summary.tsv", sep="\t")# %>% rename(Quality=AverageLength)
+auto$Direction = NA
+auto$FileName = as.character(auto$FileName)
+data = read.csv("CS_SCR/deps/manual_output/results.tsv", sep="\t") %>% rename(AverageLoss=Perplexity)
+data$DH_Weight = NA
+data$Counter = NA
+data$Language = "English"
+#data$Objective = NA
+data$FileName = as.character(data$FileName)
+#data$ObjectiveName = NA
+data$EntropyWeight = NA
+data$LR_POLICY=NA
+data$Lagrange_Lambda=NA
+data$Lagrange_B=NA
+data$L2_Weight=NA
+data = bind_rows(data, auto)
+
+
+#aggregate(data["Counter"], by=c(data["Language"], data["FileName"], data["ModelName"], data["ObjectiveName"]), NROW)
+
+# important that Counter is never NA
+
+data = data %>% filter(Counter > 10)
+################################
+
+forAll = c("readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorpora.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopes.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaLogVarRateUID.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaLogVar.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaLogVarDepLBugfix.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaLogVarRateUIDDepLBugfix.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaLogVarRateUIDLogDepL.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaLogVarDepLBugfix.py")
+
+data = data %>% mutate(RegType = ifelse(ModelName == "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaSurp.py", "Surp", ifelse(ModelName %in% c("readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaDepL.py", "readDataRegressionDepLengthAndSurprisalRandomEffectsVariationalUIDRandInterceptSlopesAllCorporaDepLOnly_Bugfix.py"), "DepL", ifelse(ModelName %in% forAll, "All", ifelse(ModelName == "readDataRegressionDepLengthAndSurprisalRandomEffectsVariational.py", "All_NoSlope", "NONE")))))
+
+cat("Take into account (1) log variances, (2) UID rate vs UID")
+data = data %>% mutate(Var_Slope_Surp_POS = ifelse(is.na(Var_Slope_Surp_POS), exp(LogVar_Slope_Surp_POS), Var_Slope_Surp_POS))
+data = data %>% mutate(Var_Slope_Surp_Word = ifelse(is.na(Var_Slope_Surp_Word), exp(LogVar_Slope_Surp_Word), Var_Slope_Surp_Word))
+data$Var_Slope_UIDRate = NA
+data = data %>% mutate(Var_Slope_UIDRate = ifelse(is.na(Var_Slope_UIDRate), exp(LogVar_Slope_UIDRate), Var_Slope_UIDRate))
+data = data %>% mutate(Var_Slope_UID = ifelse(is.na(Var_Slope_UID), exp(LogVar_Slope_UID), Var_Slope_UID))
+data = data %>% mutate(DH_Sigma = ifelse(is.na(DH_Sigma), exp(DH_LogSigma), DH_Sigma))
+data = data %>% mutate(Mean_Slope_DepLength = ifelse(is.na(Mean_Slope_DepLength), exp(Mean_Slope_DepLogLength), Mean_Slope_DepLength))
+data = data %>% mutate(Distance_Sigma = ifelse(is.na(Distance_Sigma), exp(Distance_LogSigma), Distance_Sigma))
+data = data %>% mutate(Var_Slope_DepLength = ifelse(is.na(Var_Slope_DepLength), exp(LogVar_Slope_DepLogLength), Var_Slope_DepLength))
+data = data %>% mutate(Var_Slope_DepLength = ifelse(is.na(Var_Slope_DepLength), exp(LogVar_Slope_DepLength), Var_Slope_DepLength))
+
+cat(" TODO do same with other variances and Sigmas")
+cat("ALSO take into account depLogLength")
+cat("Where is Norwegian surprisal data???")
+
+
+
+```
+
+
+
+
+
+```{r, echo=FALSE}
+freqs = data.frame()
+for(lang in languages) {
+   freqs = rbind(freqs, read.csv(paste("CS_SCR/deps/",lang,"-stats.tsv",sep=""), sep="\t") %>% mutate(Language=lang))
+}
+# TODO this is a hacky way to ensure Norwegian is in the data
+freqs$Language[freqs$Language=="Norwegian-Nynorsk"] = "Norwegian"
+data = merge(data, freqs %>% select(Head, Dependency, Dependent, Count, Language), by=c("Head", "Dependency", "Dependent", "Language")) #, all=TRUE)
+######################################
+realWeights = data %>% filter(ObjectiveName == "variational") %>% select(Head, Dependency, Dependent, Language, DH_Mean, DH_Sigma, Distance_Mean, Distance_Sigma)%>% rename(Real_DH_Mean = DH_Mean, Real_DH_Sigma = DH_Sigma, Real_Distance_Mean = Distance_Mean, Real_Distance_Sigma = Distance_Sigma)
+data = merge(data, realWeights, by=c("Language", "Head", "Dependency", "Dependent"), all=TRUE)
+
+
+
+# TODO here, need to make sure that only ONE variational model is taken per language
+
+
+
+######################################
+data = data %>% mutate(DH = ifelse(is.na(DH_Weight), Direction == "DH", DH_Weight>0))
+data = data %>% mutate(Language = as.factor(Language), Head = as.factor(Head), Dependency = as.factor(Dependency), Dependent = as.factor(Dependent))
+```
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossHeads = function(dataset) {
+    for(language in unique(dataset$Language)) {
+        dodge = position_dodge(.9)
+        agr = dataset %>% filter(Language==language) %>% group_by(Language, Head) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
+        plot = ggplot(agr, aes(x=Head,y=DistanceWeight, fill=Real_DistanceWeight)) +
+          geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+          geom_bar(stat="identity", position=dodge) +
+          facet_wrap(~Language)
+        print(plot)
+    }
+}
+```
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossHeadsAveragedOverLangs = function(dataset) {
+    dodge = position_dodge(.9)
+    agr = dataset %>% group_by(Head) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
+    plot = ggplot(agr, aes(x=Head,y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge)
+    print(plot)
+}
+```
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossHeads = function(dataset) {
+  for(language in unique(dataset$Language)) {
+      dodge = position_dodge(.9)
+      agr = dataset %>% filter(Language==language) %>% group_by(Language,Head) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE))
+      plot = ggplot(agr, aes(x=Head,y=DH_Weight, fill=Real_DH_Weight)) +
+        geom_errorbar(aes(ymin=DH_Weight-DH_Weight_SD, ymax=DH_Weight+DH_Weight_SD), position=dodge, width=.25) +
+        geom_bar(stat="identity", position=dodge) +
+        facet_wrap(~Language)
+      print(plot)
+  }
+}
+```
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependents = function(dataset) {
+for(language in unique(dataset$Language)) {
+    dodge = position_dodge(.9)
+    agr = dataset %>% filter(Language==language) %>% group_by(Language, Dependent) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
+    plot = ggplot(agr, aes(x=Dependent,y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap(~Language)
+    print(plot)
+}
+}
+```
+
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependentsAveragedOverLanguages = function(dataset) {
+    dodge = position_dodge(.9)
+    agr = dataset  %>% group_by(Dependent) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
+    plot = ggplot(agr, aes(x=Dependent,y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge)
+    print(plot)
+}
+```
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossDependents = function(dataset) {
+  for(language in unique(dataset$Language)) {
+      dodge = position_dodge(.9)
+      agr = dataset %>% filter(Language==language) %>% group_by(Language,Dependent) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE))
+      plot = ggplot(agr, aes(x=Dependent,y=DH_Weight, fill=Real_DH_Weight)) +
+        geom_errorbar(aes(ymin=DH_Weight-DH_Weight_SD, ymax=DH_Weight+DH_Weight_SD), position=dodge, width=.25) +
+        geom_bar(stat="identity", position=dodge) +
+        facet_wrap(~Language)
+      print(plot)
+  }
+}
+```
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependencies = function(dataset) {
+
+for(language in unique(dataset$Language)) {
+    dodge = position_dodge(.9)
+    agr = dataset %>% filter(Language==language) %>% group_by(Language, Dependency) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
+    plot = ggplot(agr, aes(x=Dependency,y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap(~Language)
+    print(plot)
+
+    
+    agr = dataset %>% filter(Language==language) %>% mutate(Direction = ifelse(DH_Weight > 0, "DH", "HD")) %>% group_by(Language, Direction, Dependency) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
+    plot = ggplot(agr, aes(x=Dependency,y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap(~Language+Direction)
+    print(plot)
+}
+}
+```
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependenciesAveraged = function(dataset) {
+    dodge = position_dodge(.9)
+    agr = dataset %>% group_by(Dependency) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% filter(Count >= median(Count))
+    plot = ggplot(agr, aes(x=Dependency,y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) 
+    print(plot)
+}
+```
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependenciesAveraged2 = function(dataset) {
+    dodge = position_dodge(.9)
+    agr = dataset %>% group_by(Head,Dependency,Dependent) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count))
+    agr = agr[order(-agr$Count),] 
+    agr = agr[(1:50),]
+    plot = ggplot(agr, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge)
+    print(plot)
+}
+```
+
+
+
+```{r, echo=FALSE, fig.width=35, fig.height=5}
+generalDistancePredictionsAcrossDependenciesAveraged3 = function(dataset) {
+    dodge = position_dodge(.9)
+    dataset = dataset %>% mutate(Direction = ifelse(DH_Weight > 0, "DH", "HD"))
+    agr = dataset %>% group_by(Direction,Head,Dependency,Dependent) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count))
+    agr = agr[order(-agr$Count),] 
+    agr = agr[(1:50),]
+    plot = ggplot(agr, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=DistanceWeight, fill=Real_DistanceWeight)) +
+      geom_errorbar(aes(ymin=DistanceWeight-DistanceWeight_SD, ymax=DistanceWeight+DistanceWeight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap( ~ Direction)
+    print(plot)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossDependencies = function(dataset) {
+  for(language in unique(dataset$Language)) {
+      dodge = position_dodge(.9)
+      agr = dataset %>% filter(Language==language) %>% group_by(Language,Dependency) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE))
+      plot = ggplot(agr, aes(x=Dependency,y=DH_Weight, fill=Real_DH_Weight)) +
+        geom_errorbar(aes(ymin=DH_Weight-DH_Weight_SD, ymax=DH_Weight+DH_Weight_SD), position=dodge, width=.25) +
+        geom_bar(stat="identity", position=dodge) +
+        facet_wrap(~Language)
+      print(plot)
+  }
+}
+```
+
+
+
+```{r, echo=FALSE, fig.width=35, fig.height=5}
+generalOrderPredictionsAcrossDependenciesAveraged = function(dataset) {
+    dodge = position_dodge(.9)
+    agr = dataset %>% group_by(Dependency) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% filter(Count >= quantile(Count, 0.7))
+    plot = ggplot(agr, aes(x=Dependency,y=DH_Weight, fill=Real_DH_Weight)) +
+      geom_errorbar(aes(ymin=DH_Weight-DH_Weight_SD, ymax=DH_Weight+DH_Weight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge)
+    print(plot)
+
+    dodge = position_dodge(.9)
+    agr = dataset %>% group_by(Head,Dependency,Dependent) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Count = sum(Count))
+    agr = agr[order(-agr$Count),] 
+    agr = agr[(1:50),]
+    plot = ggplot(agr, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=DH_Weight, fill=Real_DH_Weight)) +
+      geom_errorbar(aes(ymin=DH_Weight-DH_Weight_SD, ymax=DH_Weight+DH_Weight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge)
+    print(plot)
+
+    dodge = position_dodge(.9)
+    dataset = dataset %>% mutate(Direction = ifelse(DH_Weight > 0, "DH", "HD"))
+    agr = dataset %>% group_by(Direction,Head,Dependency,Dependent) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Count = sum(Count))
+    agr = agr[order(-agr$Count),] 
+    agr = agr[(1:50),]
+    plot = ggplot(agr, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=DH_Weight, fill=Real_DH_Weight)) +
+      geom_errorbar(aes(ymin=DH_Weight-DH_Weight_SD, ymax=DH_Weight+DH_Weight_SD), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap( ~ Direction)
+    print(plot)
+}
+```
+
+
+
+
+# Optimizing Online Assignment of Dependency Labels (~Syntactic Roles)
+
+```{r, echo=FALSE}
+
+
+
+
+# TODO depLabels
+dataDepLabels = data[data$Objective == "depLabels",]
+depLabelsDistances = as.data.frame(dataDepLabels %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
+
+depLabelsDistancesDetails = as.data.frame(dataDepLabels %>% group_by(Dependency, Language, FileName) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Count=sum(Count)))
+
+
+depLabelsPerHead = as.data.frame(dataDepLabels %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
+
+
+depLabelsNP = depLabelsPerHead %>% filter(Head == "NOUN") #%>% filter(Count > 1000)
+depLabels_G_20 = depLabelsNP %>% filter(Dependency %in% c("amod", "det", "nummod"))
+
+# distance
+depLabels_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
+
+# look at existing patterns
+depLabels_G_20[order(depLabels_G_20$Language, depLabels_G_20$DH, depLabels_G_20$DistanceWeight),]
+
+depLabels_G_20 = depLabels_G_20 #%>% mutate(DH = DH_Weight>0)
+
+
+```
+
+
+
+
+
+
+
+## General Distance Predictions across Heads
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossHeads(dataDepLabels)
+```
+
+### averaged over languages
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossHeadsAveragedOverLangs(dataDepLabels)
+```
+
+## General Order Predictions across Heads
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossHeads(dataDepLabels)
+```
+
+## General Distance Predictions across Dependents
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependents(dataDepLabels)
+```
+
+### averaged over languages
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependentsAveragedOverLanguages(dataDepLabels)
+```
+
+## General Order Predictions across Dependents
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossDependents(dataDepLabels)
+```
+
+## General Distance Predictions across Dependencies
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependencies(dataDepLabels)
+```
+
+### averaged over Languages
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependenciesAveraged(dataDepLabels)
+```
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependenciesAveraged2(dataDepLabels)
+```
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalDistancePredictionsAcrossDependenciesAveraged3(dataDepLabels)
+```
+
+## General Order Predictions across Dependencies
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossDependencies(dataDepLabels)
+```
+
+### averaged over Languages
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+generalOrderPredictionsAcrossDependenciesAveraged(dataDepLabels)
+```
+
+
+
+
+
+
+
+## Distance logits for Det, Num, Adj
+More negative values indicate stronger preference to be close to the noun.
+
+```{r, echo=FALSE}
+plot = ggplot(depLabels_G_20, aes(DistanceWeight, fill=Language)) +
+  geom_histogram(binwidth=2) +
+  facet_wrap( ~ Dependency) 
+print(plot)
+
+
+
+
+
+library(data.table)
+depLabels_G_20 = dcast(setDT(depLabels_G_20), Language +FileName + AverageLoss ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"))
+
+
+
+```
+
+

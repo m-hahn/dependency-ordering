@@ -11,7 +11,7 @@ output:
 
 <style>
 img {
-    max-width: 300%;
+    max-width: 150%;
 
     /* other options:
     max-width: none;
@@ -25,7 +25,7 @@ img {
 
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, warning=FALSE, output=FALSE, include=FALSE}
 source('readData.r')
 ```
 
@@ -33,31 +33,16 @@ source('readData.r')
 
 
 
-```{r, echo=FALSE}
-freqs = data.frame()
-for(lang in languages) {
-   freqs = rbind(freqs, read.csv(paste("CS_SCR/deps/",lang,"-stats.tsv",sep=""), sep="\t") %>% mutate(Language=lang))
-}
-# TODO this is a hacky way to ensure Norwegian is in the data
-freqs$Language[freqs$Language=="Norwegian-Nynorsk"] = "Norwegian"
-data = merge(data, freqs %>% select(Head, Dependency, Dependent, Count, Language), by=c("Head", "Dependency", "Dependent", "Language")) #, all=TRUE)
-######################################
-realWeights = data %>% filter(ObjectiveName == "variational") %>% select(Head, Dependency, Dependent, Language, DH_Mean, DH_Sigma, Distance_Mean, Distance_Sigma)%>% rename(Real_DH_Mean = DH_Mean, Real_DH_Sigma = DH_Sigma, Real_Distance_Mean = Distance_Mean, Real_Distance_Sigma = Distance_Sigma)
-data = merge(data, realWeights, by=c("Language", "Head", "Dependency", "Dependent"), all=TRUE)
+```{r, echo=FALSE, warning=FALSE, output=FALSE, include=FALSE}
+source('processRealWeights.r')
+data = data %>% filter(Head != "PUNCT", Dependent != "PUNCT", CoarseDependency != 'punct')
+data = data %>% filter(Counter > 20000)
 
-
-
-# TODO here, need to make sure that only ONE variational model is taken per language
-
-
-
-######################################
-data = data %>% mutate(DH = ifelse(is.na(DH_Weight), Direction == "DH", DH_Weight>0))
-data = data %>% mutate(Language = as.factor(Language), Head = as.factor(Head), Dependency = as.factor(Dependency), Dependent = as.factor(Dependent))
 ```
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossHeads = function(dataset) {
     for(language in unique(dataset$Language)) {
         dodge = position_dodge(.9)
@@ -72,7 +57,7 @@ generalDistancePredictionsAcrossHeads = function(dataset) {
 ```
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossHeadsAveragedOverLangs = function(dataset) {
     dodge = position_dodge(.9)
     agr = dataset %>% group_by(Head) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
@@ -84,7 +69,7 @@ generalDistancePredictionsAcrossHeadsAveragedOverLangs = function(dataset) {
 ```
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalOrderPredictionsAcrossHeads = function(dataset) {
   for(language in unique(dataset$Language)) {
       dodge = position_dodge(.9)
@@ -97,7 +82,7 @@ generalOrderPredictionsAcrossHeads = function(dataset) {
   }
 }
 ```
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossDependents = function(dataset) {
 for(language in unique(dataset$Language)) {
     dodge = position_dodge(.9)
@@ -113,7 +98,7 @@ for(language in unique(dataset$Language)) {
 
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossDependentsAveragedOverLanguages = function(dataset) {
     dodge = position_dodge(.9)
     agr = dataset  %>% group_by(Dependent) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE))
@@ -124,7 +109,7 @@ generalDistancePredictionsAcrossDependentsAveragedOverLanguages = function(datas
 }
 ```
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalOrderPredictionsAcrossDependents = function(dataset) {
   for(language in unique(dataset$Language)) {
       dodge = position_dodge(.9)
@@ -139,7 +124,7 @@ generalOrderPredictionsAcrossDependents = function(dataset) {
 ```
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossDependencies = function(dataset) {
 
 for(language in unique(dataset$Language)) {
@@ -162,7 +147,7 @@ for(language in unique(dataset$Language)) {
 }
 ```
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossDependenciesAveraged = function(dataset) {
     dodge = position_dodge(.9)
     agr = dataset %>% group_by(Dependency) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% filter(Count >= median(Count))
@@ -174,7 +159,7 @@ generalDistancePredictionsAcrossDependenciesAveraged = function(dataset) {
 ```
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalDistancePredictionsAcrossDependenciesAveraged2 = function(dataset) {
     dodge = position_dodge(.9)
     agr = dataset %>% group_by(Head,Dependency,Dependent) %>% summarise(DistanceWeight_SD = weighted.sd(DistanceWeight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Real_DistanceWeight = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count))
@@ -189,7 +174,7 @@ generalDistancePredictionsAcrossDependenciesAveraged2 = function(dataset) {
 
 
 
-```{r, echo=FALSE, fig.width=35, fig.height=5}
+```{r, echo=FALSE, fig.width=35, fig.height=3}
 generalDistancePredictionsAcrossDependenciesAveraged3 = function(dataset) {
     dodge = position_dodge(.9)
     dataset = dataset %>% mutate(Direction = ifelse(DH_Weight > 0, "DH", "HD"))
@@ -227,7 +212,7 @@ generalDistancePredictionsAcrossDependenciesAveraged3 = function(dataset) {
 
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=13, fig.height=3}
 generalOrderPredictionsAcrossDependencies = function(dataset) {
   for(language in unique(dataset$Language)) {
       dodge = position_dodge(.9)
@@ -243,7 +228,7 @@ generalOrderPredictionsAcrossDependencies = function(dataset) {
 
 
 
-```{r, echo=FALSE, fig.width=35, fig.height=5}
+```{r, echo=FALSE, fig.width=35, fig.height=3}
 generalOrderPredictionsAcrossDependenciesAveraged = function(dataset) {
     dodge = position_dodge(.9)
     agr = dataset %>% group_by(Dependency) %>% summarise(DH_Weight_SD = weighted.sd(DH_Weight, Count), DH_Weight = weighted.mean(DH_Weight, Count), Real_DH_Weight = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% filter(Count >= quantile(Count, 0.7))
@@ -278,8 +263,11 @@ generalOrderPredictionsAcrossDependenciesAveraged = function(dataset) {
 
 
 
-# Optimizing Surprisal (Sum of POS surprisal and Word Surprisal)
+# Minimizing Surprisal (Sum of POS surprisal and Word Surprisal)
 
+Here I'm plotting data from the counterfactual languages optimized to minimize surprisal.
+
+'DistanceWeight' is the distance parameter in the ordering model. Higher values indicate greater distance between head and dependent. 
 
 ```{r, echo=FALSE}
 dataLM = data[data$Objective == "LM",]
@@ -293,7 +281,7 @@ lmNP = lmPerHead %>% filter(Head == "NOUN") #%>% filter(Count > 1000)
 lm_G_20 = lmNP %>% filter(Dependency %in% c("amod", "det", "nummod"))
 
 # distance
-lm_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
+#lm_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
 
 # look at existing patterns
 #lm_G_20[order(lm_G_20$Language, lm_G_20$DH, lm_G_20$DistanceWeight),]
@@ -302,64 +290,9 @@ lm_G_20 = lm_G_20 #%>% mutate(DH = DH_Weight>0)
 
 ```
 
-## General Distance Predictions across Heads
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossHeads(dataLM)
-```
-
-### averaged over languages
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossHeadsAveragedOverLangs(dataLM)
-```
-
-## General Order Predictions across Heads
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalOrderPredictionsAcrossHeads(dataLM)
-```
-
-## General Distance Predictions across Dependents
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossDependents(dataLM)
-```
-
-### averaged over languages
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossDependentsAveragedOverLanguages(dataLM)
-```
-
-## General Order Predictions across Dependents
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalOrderPredictionsAcrossDependents(dataLM)
-```
-
-## General Distance Predictions across Dependencies
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossDependencies(dataLM)
-```
-
-### averaged over Languages
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossDependenciesAveraged(dataLM)
-```
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossDependenciesAveraged2(dataLM)
-```
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalDistancePredictionsAcrossDependenciesAveraged3(dataLM)
-```
-
-## General Order Predictions across Dependencies
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalOrderPredictionsAcrossDependencies(dataLM)
-```
-
-### averaged over Languages
-```{r, echo=FALSE, fig.width=25, fig.height=5}
-generalOrderPredictionsAcrossDependenciesAveraged(dataLM)
-```
-
 ## Distance logits for Det, Num, Adj
 More negative values indicate stronger preference to be close to the noun.
+Adjectives are clearly predicted to be closer to the noun than determiners and numerals.
 
 ```{r, echo=FALSE}
 plot = ggplot(lm_G_20, aes(DistanceWeight, fill=Language)) +
@@ -371,6 +304,13 @@ print(plot)
 
 ## Distance logits for Det, Num, Adj, by word order
 More negative values indicate stronger preference to be close to the noun.
+
+In general, the model has a strong tendency to put Det, Num, Adj before the noun.
+Therefore, here, I include runs where I forced Det, Num, Adj to appear after the noun (leaving the rest unchanged).
+While the logits are shifted by a constant factor in the Head-Dependent (HD) case compared to Dependent-Head (DH), this is not meaningful in the context of my ordering model.
+Considering this, no differences are predicted between pre- and post-nominal modifiers (nothing like Universal 20 seems to come out).
+
+
 
 ```{r, echo=FALSE}
 lm_G_20 = lm_G_20 %>% mutate(DH_Binary = ifelse(DH > 0, "DH", "HD"))
@@ -383,138 +323,132 @@ library(data.table)
 lm_G_20 = dcast(setDT(lm_G_20), Language +FileName + AverageLoss ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"))
 
 
-dataLMLex = dataLM %>% filter(ModelName %in% c("readDataDistCrossGPUFreeMomentumEarlyStopEntropyPersevereAnnealAllCorporaOnlyLex.py"))
-lmLexDistances = as.data.frame(dataLMLex %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
-
-lmLexDistancesDetails = as.data.frame(dataLMLex %>% group_by(Dependency, Language, FileName) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Count=sum(Count)))
-
-
-lmLexPerHead = as.data.frame(dataLMLex %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
-
-
-lmLexNP = lmLexPerHead %>% filter(Head == "NOUN") #%>% filter(Count > 1000)
-lmLex_G_20 = lmLexNP %>% filter(Dependency %in% c("amod", "det", "nummod"))
-
-# distance
-lmLex_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
-
-# look at existing patterns
-#lmLex_G_20[order(lmLex_G_20$Language, lmLex_G_20$DH, lmLex_G_20$DistanceWeight),]
-
-lmLex_G_20 = lmLex_G_20 #%>% mutate(DH = DH_Weight>0)
-
-```
-
-## Distance logits for Det, Num, Adj
-More negative values indicate stronger preference to be close to the noun.
-
-```{r, echo=FALSE}
-plot = ggplot(lmLex_G_20, aes(DistanceWeight, fill=Language)) +
-  geom_histogram(binwidth=2) +
-  facet_wrap( ~ Dependency) 
-print(plot)
-
-
-```
-
-## Distance logits for Det, Num, Adj, by word order
-More negative values indicate stronger preference to be close to the noun.
-
-```{r, echo=FALSE}
-lmLex_G_20 = lmLex_G_20 %>% mutate(DH_Binary = ifelse(DH > 0, "DH", "HD"))
-plot = ggplot(lmLex_G_20, aes(DistanceWeight, fill=Language)) +
-  geom_histogram(binwidth=2) +
-  facet_wrap( ~ Dependency + DH_Binary) 
-print(plot)
-
-
-
-
-
-
-library(data.table)
-lmLex_G_20 = dcast(setDT(lmLex_G_20), Language +FileName + AverageLoss ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"))
-
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_amod > 0,]$DistanceWeight_amod)
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_amod < 0,]$DistanceWeight_amod)
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_det < 0,]$DistanceWeight_det)
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_det > 0,]$DistanceWeight_det)
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
-#> summary(lmLex_G_20[lmLex_G_20$DH_Weight_num < 0,]$DistanceWeight_num)
-
-
-```
-
-## Distance logits for Det, Num, Adj, by word order
-Here, including runs where I forced Det, Num, Adj to appear after the noun.
-
-```{r, echo=FALSE}
-
-
-dataLMLexForceHD = dataLM %>% filter(ModelName %in% c("readDataDistCrossGPUFreeMomentumEarlyStopEntropyPersevereAnnealAllCorporaOnlyLex.py", "readDataDistCrossGPUFreeMomentumEarlyStopEntropyPersevereAnnealAllCorporaOnlyLexRestrNP.py"))
-lmLexForceHDDistances = as.data.frame(dataLMLexForceHD %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
-
-lmLexForceHDDistancesDetails = as.data.frame(dataLMLexForceHD %>% group_by(Dependency, Language, FileName) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Count=sum(Count)))
-
-
-lmLexForceHDPerHead = as.data.frame(dataLMLexForceHD %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
-
-
-lmLexForceHDNP = lmLexForceHDPerHead %>% filter(Head == "NOUN") #%>% filter(Count > 1000)
-lmLexForceHD_G_20 = lmLexForceHDNP %>% filter(Dependency %in% c("amod", "det", "nummod"))
-
-# distance
-lmLexForceHD_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
-
-# look at existing patterns
-#lmLexForceHD_G_20[order(lmLexForceHD_G_20$Language, lmLexForceHD_G_20$DH, lmLexForceHD_G_20$DistanceWeight),]
-
-lmLexForceHD_G_20 = lmLexForceHD_G_20 #%>% mutate(DH = DH_Weight>0)
-
-
-```
-
-
-## Distance logits for Det, Num, Adj
-More negative values indicate stronger preference to be close to the noun.
-
-```{r, echo=FALSE}
-plot = ggplot(lmLexForceHD_G_20, aes(DistanceWeight, fill=Language)) +
-  geom_histogram(binwidth=2) +
-  facet_wrap( ~ Dependency) 
-print(plot)
-
-
-```
-
-## Distance logits for Det, Num, Adj, by word order
-More negative values indicate stronger preference to be close to the noun.
-
-```{r, echo=FALSE}
-lmLexForceHD_G_20 = lmLexForceHD_G_20 %>% mutate(DH_Binary = ifelse(DH > 0, "DH", "HD"))
-plot = ggplot(lmLexForceHD_G_20, aes(DistanceWeight, fill=Language)) +
-  geom_histogram(binwidth=2) +
-  facet_wrap( ~ Dependency + DH_Binary) 
-print(plot)
-
-
-
-
-
-
-library(data.table)
-lmLexForceHD_G_20 = dcast(setDT(lmLexForceHD_G_20), Language +FileName + AverageLoss ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"))
-
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_amod > 0,]$DistanceWeight_amod)
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_amod < 0,]$DistanceWeight_amod)
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_det < 0,]$DistanceWeight_det)
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_det > 0,]$DistanceWeight_det)
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
-#> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_num < 0,]$DistanceWeight_num)
-
-
+#dataLMLex = dataLM %>% filter(ModelName %in% c("readDataDistCrossGPUFreeMomentumEarlyStopEntropyPersevereAnnealAllCorporaOnlyLex.py"))
+#lmLexDistances = as.data.frame(dataLMLex %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
+#
+#lmLexDistancesDetails = as.data.frame(dataLMLex %>% group_by(Dependency, Language, FileName) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Count=sum(Count)))
+#
+#
+#lmLexPerHead = as.data.frame(dataLMLex %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
+#
+#
+#lmLexNP = lmLexPerHead %>% filter(Head == "NOUN") #%>% filter(Count > 1000)
+#lmLex_G_20 = lmLexNP %>% filter(Dependency %in% c("amod", "det", "nummod"))
+#
+## distance
+##lmLex_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
+#
+## look at existing patterns
+##lmLex_G_20[order(lmLex_G_20$Language, lmLex_G_20$DH, lmLex_G_20$DistanceWeight),]
+#
+#lmLex_G_20 = lmLex_G_20 #%>% mutate(DH = DH_Weight>0)
+#
+#```
+#
+### Distance logits for Det, Num, Adj
+#More negative values indicate stronger preference to be close to the noun.
+#
+#```{r, echo=FALSE}
+#plot = ggplot(lmLex_G_20, aes(DistanceWeight, fill=Language)) +
+#  geom_histogram(binwidth=2) +
+#  facet_wrap( ~ Dependency) 
+#print(plot)
+#
+#
+#```
+#
+### Distance logits for Det, Num, Adj, by word order
+#More negative values indicate stronger preference to be close to the noun.
+#
+#```{r, echo=FALSE}
+#lmLex_G_20 = lmLex_G_20 %>% mutate(DH_Binary = ifelse(DH > 0, "DH", "HD"))
+#plot = ggplot(lmLex_G_20, aes(DistanceWeight, fill=Language)) +
+#  geom_histogram(binwidth=2) +
+#  facet_wrap( ~ Dependency + DH_Binary) 
+#print(plot)
+#
+#library(data.table)
+#lmLex_G_20 = dcast(setDT(lmLex_G_20), Language +FileName + AverageLoss ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"))
+#
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_amod > 0,]$DistanceWeight_amod)
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_amod < 0,]$DistanceWeight_amod)
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_det < 0,]$DistanceWeight_det)
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_det > 0,]$DistanceWeight_det)
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
+##> summary(lmLex_G_20[lmLex_G_20$DH_Weight_num < 0,]$DistanceWeight_num)
+#
+#
+#```
+#
+### Distance logits for Det, Num, Adj, by word order
+#
+#```{r, echo=FALSE}
+#
+#
+#dataLMLexForceHD = dataLM %>% filter(ModelName %in% c("readDataDistCrossGPUFreeMomentumEarlyStopEntropyPersevereAnnealAllCorporaOnlyLex.py", "readDataDistCrossGPUFreeMomentumEarlyStopEntropyPersevereAnnealAllCorporaOnlyLexRestrNP.py"))
+#lmLexForceHDDistances = as.data.frame(dataLMLexForceHD %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
+#
+#lmLexForceHDDistancesDetails = as.data.frame(dataLMLexForceHD %>% group_by(Dependency, Language, FileName) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count), DistanceWeight = weighted.mean(DistanceWeight, Count), Count=sum(Count)))
+#
+#
+#lmLexForceHDPerHead = as.data.frame(dataLMLexForceHD %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
+#
+#
+#lmLexForceHDNP = lmLexForceHDPerHead %>% filter(Head == "NOUN") #%>% filter(Count > 1000)
+#lmLexForceHD_G_20 = lmLexForceHDNP %>% filter(Dependency %in% c("amod", "det", "nummod"))
+#
+## distance
+#lmLexForceHD_G_20 %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
+#
+## look at existing patterns
+##lmLexForceHD_G_20[order(lmLexForceHD_G_20$Language, lmLexForceHD_G_20$DH, lmLexForceHD_G_20$DistanceWeight),]
+#
+#lmLexForceHD_G_20 = lmLexForceHD_G_20 #%>% mutate(DH = DH_Weight>0)
+#
+#
+#```
+#
+#
+### Distance logits for Det, Num, Adj
+#More negative values indicate stronger preference to be close to the noun.
+#
+#```{r, echo=FALSE}
+#plot = ggplot(lmLexForceHD_G_20, aes(DistanceWeight, fill=Language)) +
+#  geom_histogram(binwidth=2) +
+#  facet_wrap( ~ Dependency) 
+#print(plot)
+#
+#
+#```
+#
+### Distance logits for Det, Num, Adj, by word order
+#More negative values indicate stronger preference to be close to the noun.
+#
+#```{r, echo=FALSE}
+#lmLexForceHD_G_20 = lmLexForceHD_G_20 %>% mutate(DH_Binary = ifelse(DH > 0, "DH", "HD"))
+#plot = ggplot(lmLexForceHD_G_20, aes(DistanceWeight, fill=Language)) +
+#  geom_histogram(binwidth=2) +
+#  facet_wrap( ~ Dependency + DH_Binary) 
+#print(plot)
+#
+#
+#
+#
+#
+#
+#library(data.table)
+#lmLexForceHD_G_20 = dcast(setDT(lmLexForceHD_G_20), Language +FileName + AverageLoss ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"))
+#
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_amod > 0,]$DistanceWeight_amod)
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_amod < 0,]$DistanceWeight_amod)
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_det < 0,]$DistanceWeight_det)
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_det > 0,]$DistanceWeight_det)
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_num > 0,]$DistanceWeight_num)
+##> summary(lmLexForceHD_G_20[lmLexForceHD_G_20$DH_Weight_num < 0,]$DistanceWeight_num)
+#
+#
 ```
 
 
@@ -524,106 +458,176 @@ lmLexForceHD_G_20 = dcast(setDT(lmLexForceHD_G_20), Language +FileName + Average
 
 ##############
 
+#lmCoreDependents = lmPerHead %>% filter(Head == "VERB") %>% filter(Count > 1000)
+#lm_CoreDependents = lmCoreDependents %>% filter(Dependency %in% c("obj", "iobj", "nsubj", "nsubjpass"))
+#
+## distance
+#lm_CoreDependents %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
+#
+## look at existing patterns
+##lm_CoreDependents[order(lm_CoreDependents$Language, lm_CoreDependents$DH, lm_CoreDependents$DistanceWeight),]
+#
+#
+#library(data.table)
+#lm_CoreDependents = dcast(setDT(lm_CoreDependents), Language +FileName ~ Dependency, value.var=c("DistanceWeight", "DH", "DH_Weight"), na.rm=TRUE)
+#
+####################
+#
+## Left-Right Asymmetry
+##summary(lmer(DistanceWeight ~ DH_Weight + (1|ModelName) + (1|FileName) + (1|Head) + (1|Dependency) + (1|Dependent), data=dataLM))
+#
+## entropy regularization masks this effect
+##summary(lmer(DistanceWeight ~ DH_Weight*EntropyWeight + (1|FileName) + (1|Head) + (1|Dependency) + (1|Dependent), data=dataLM))
+#
+####################
+#
+## nominal vs pronominal core arguments
+#
+##lmPerHeadDep = as.data.frame(dataLM %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
+#
+#
+#lmNounPronArgs = dataLM %>% filter(Head == "VERB", Dependent %in% c("NOUN", "PRON")) %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
+#
+#lm_NounPronArgs = lmNounPronArgs %>% filter(Dependency %in% c("obj", "iobj", "nsubj", "nsubjpass"))
+#
+#library(data.table)
+#lm_NounPronArgs = dcast(setDT(lm_NounPronArgs), Language +FileName ~ Dependency + Dependent, value.var=c("DistanceWeight", "DH_Weight"), na.rm=TRUE)
+#
+#
+######### 
+## 7: SOV (/+OSV) => Adv before Verb
+#lmG7_1 = dataLM %>% filter(Head == "VERB", Dependent == "ADV", Dependency == "advmod") %>% select(Language, FileName, DH_Weight) %>% rename(DH_advmod = DH_Weight)
+#lmG7_2 = dataLM %>% filter(Head == "VERB", Dependent == "NOUN", Dependency == "obj") %>% select(Language, FileName, DH_Weight) %>% rename(DH_obj = DH_Weight)
+#lmG7 = merge(lmG7_1, lmG7_2, by=c("Language", "FileName"))
+#cor.test(lmG7$DH_advmod, lmG7$DH_obj)
+## there seems to be nothing here
+#
+#
+## 13. "If the nominal object always precedes the verb, then verb forms subordinate to the main verb also precede it."
+#
+## 16. "In languages with dominant order VSO, an inflected auxiliary always precedes the main verb. In languages with dominant order SOV, an inflected auxiliary always follows the main verb."
+#
+#
+## sounds like dependency length
+#
+## 17. "With overwhelmingly more than chance frequency, languages with dominant order VSO have the adjective after the noun." [but see Dryer 1992]
+#
+## sounds like dependency length
+#
+## 18. "When the descriptive adjective precedes the noun, the demonstrative and the numeral, with overwhelmingly more than chance frequency, do likewise."
+#
+#summary(lm_G_20 %>% filter(DH_Weight_amod > 0))
+## seems potentially opposite to prediction
+#
+## 21. "If some or all adverbs follow the adjective they modify, then the language is one in which the qualifying adjective follows the noun and the verb precedes its nominal object as the dominant order."
+#
+#lmG21_1 = dataLM %>% filter(Head == "ADJ", Dependent == "ADV", Dependency == "advmod") %>% select(Language, FileName, DH_Weight) %>% rename(DH_advmod = DH_Weight)
+#lmG21_2 = dataLM %>% filter(Head == "NOUN", Dependent == "ADJ", Dependency == "amod") %>% select(Language, FileName, DH_Weight)%>% rename(DH_amod = DH_Weight)
+#lmG21_3 = dataLM %>% filter(Head == "VERB", Dependent == "NOUN", Dependency == "obj") %>% select(Language, FileName, DH_Weight)%>% rename(DH_obj = DH_Weight)
+#lmG21 = merge(lmG21_1, lmG21_2, by=c("Language", "FileName"))
+#lmG21 = merge(lmG21,   lmG21_3, by=c("Language", "FileName"))
+#summary(lmG21[lmG21$DH_advmod < 0,])
+## there seems to be nothing here (sounds more like dependency length)
+#
+##Head == "VERB", Dependent %in% c("NOUN", "PRON")) %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
+#
+#
+#
+## 23. "If in apposition the proper noun usually precedes the common noun, then the language is one in which the governing noun precedes its dependent genitive. With much better than chance frequency, if the common noun usually precedes the proper noun, the dependent genitive precedes its governing noun."
+#
+## 24. "If the relative expression precedes the noun either as the only construction or as an alternate construction, either the language is postpositional, or the adjective precedes the noun or both."
+#
+#
+#
+#
+###############################
+## 25. "If the pronominal object follows the verb, so does the nominal object."
+#lmG25 = dataLM %>% filter(Head == "VERB", Dependent %in% c("NOUN", "PRON")) %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
+#
+#lmG25 = lmG25 %>% filter(Dependency %in% c("obj"))
+#
+#lmG25 = dcast(setDT(lmG25), Language +FileName ~ Dependency + Dependent, value.var=c("DH_Weight"), na.rm=TRUE)
+#
+#summary(lmG25 %>% filter(obj_PRON < 0))
+## expect obj_NOUN to be negative, but there is nothing
+#
+#
+#
+#
+#
+## prepositions vs postpositions
+#
+#
+#prePostpos = dataLM %>% filter(Head == "NOUN", Dependency == "case", Dependent == "ADP") %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
+#
+#
+#library(data.table)
+#prePostpos = dcast(setDT(prePostpos), Language +FileName ~ 1, value.var=c("DistanceWeight", "DH_Weight"), na.rm=TRUE)
+#
+#prePostposByLan = prePostpos %>% group_by(Language) %>% summarise(DH_Weight_SD = sd(DH_Weight, na.rm=TRUE), DH_Weight = mean(DH_Weight, na.rm=TRUE), DistanceWeight = mean(DistanceWeight, na.rm=TRUE))
+## cor(prePostposByLan$DH_Weight, prePostposByLan$DistanceWeight)
+## `when before the head, bind more strongly'
+
+#################################
+
+
+
+```
+
+### Distance logits for Core Arguments
+More negative values indicate stronger preference to be close to the noun.
+Across languages, there is no significant difference between subjects and objects so far (contrary to what I wrote in the initial draft).
+
+```{r, echo=FALSE}
+
 lmCoreDependents = lmPerHead %>% filter(Head == "VERB") %>% filter(Count > 1000)
 lm_CoreDependents = lmCoreDependents %>% filter(Dependency %in% c("obj", "iobj", "nsubj", "nsubjpass"))
 
-# distance
-lm_CoreDependents %>% group_by(Dependency) %>% summarise(DistanceWeight = mean(DistanceWeight))
 
-# look at existing patterns
-lm_CoreDependents[order(lm_CoreDependents$Language, lm_CoreDependents$DH, lm_CoreDependents$DistanceWeight),]
+
+plot = ggplot(lm_CoreDependents, aes(DistanceWeight, fill=Language)) +
+  geom_histogram(binwidth=2) +
+  facet_wrap( ~ Dependency) 
+print(plot)
+
 
 
 library(data.table)
-lm_CoreDependents = dcast(setDT(lm_CoreDependents), Language +FileName ~ Dependency, value.var=c("DistanceWeight", "DH", "DH_Weight"), na.rm=TRUE)
+lm_CoreDependents = dcast(setDT(lm_CoreDependents), Language +FileName ~ Dependency, value.var=c("DistanceWeight", "DH_Weight"), na.rm=TRUE)
 
-###################
 
-# Left-Right Asymmetry
-#summary(lmer(DistanceWeight ~ DH_Weight + (1|ModelName) + (1|FileName) + (1|Head) + (1|Dependency) + (1|Dependent), data=dataLM))
+#################################
 
-# entropy regularization masks this effect
-#summary(lmer(DistanceWeight ~ DH_Weight*EntropyWeight + (1|FileName) + (1|Head) + (1|Dependency) + (1|Dependent), data=dataLM))
-
-###################
-
-# nominal vs pronominal core arguments
+## nominal vs pronominal core arguments
 
 #lmPerHeadDep = as.data.frame(dataLM %>% group_by(Head,Dependency,  Language, FileName, AverageLoss) %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count)))
 
+
+```
+
+### Distance logits for Nominal and Pronominal Arguments
+More negative values indicate stronger preference to be close to the noun.
+Nominal arguments are predicted to come closer than nominal arguments.
+
+```{r, echo=FALSE}
 
 lmNounPronArgs = dataLM %>% filter(Head == "VERB", Dependent %in% c("NOUN", "PRON")) %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
 
 lm_NounPronArgs = lmNounPronArgs %>% filter(Dependency %in% c("obj", "iobj", "nsubj", "nsubjpass"))
 
+plot = ggplot(lm_NounPronArgs, aes(DistanceWeight, fill=Language)) +
+  geom_histogram(binwidth=2) +
+  facet_wrap( ~ Dependency + Dependent) 
+print(plot)
+
+
+
 library(data.table)
 lm_NounPronArgs = dcast(setDT(lm_NounPronArgs), Language +FileName ~ Dependency + Dependent, value.var=c("DistanceWeight", "DH_Weight"), na.rm=TRUE)
 
 
-######## 
-# 7: SOV (/+OSV) => Adv before Verb
-lmG7_1 = dataLM %>% filter(Head == "VERB", Dependent == "ADV", Dependency == "advmod") %>% select(Language, FileName, DH_Weight) %>% rename(DH_advmod = DH_Weight)
-lmG7_2 = dataLM %>% filter(Head == "VERB", Dependent == "NOUN", Dependency == "obj") %>% select(Language, FileName, DH_Weight) %>% rename(DH_obj = DH_Weight)
-lmG7 = merge(lmG7_1, lmG7_2, by=c("Language", "FileName"))
-cor.test(lmG7$DH_advmod, lmG7$DH_obj)
-# there seems to be nothing here
 
-
-# 13. "If the nominal object always precedes the verb, then verb forms subordinate to the main verb also precede it."
-
-# 16. "In languages with dominant order VSO, an inflected auxiliary always precedes the main verb. In languages with dominant order SOV, an inflected auxiliary always follows the main verb."
-
-
-# sounds like dependency length
-
-# 17. "With overwhelmingly more than chance frequency, languages with dominant order VSO have the adjective after the noun." [but see Dryer 1992]
-
-# sounds like dependency length
-
-# 18. "When the descriptive adjective precedes the noun, the demonstrative and the numeral, with overwhelmingly more than chance frequency, do likewise."
-
-summary(lm_G_20 %>% filter(DH_Weight_amod > 0))
-# seems potentially opposite to prediction
-
-# 21. "If some or all adverbs follow the adjective they modify, then the language is one in which the qualifying adjective follows the noun and the verb precedes its nominal object as the dominant order."
-
-lmG21_1 = dataLM %>% filter(Head == "ADJ", Dependent == "ADV", Dependency == "advmod") %>% select(Language, FileName, DH_Weight) %>% rename(DH_advmod = DH_Weight)
-lmG21_2 = dataLM %>% filter(Head == "NOUN", Dependent == "ADJ", Dependency == "amod") %>% select(Language, FileName, DH_Weight)%>% rename(DH_amod = DH_Weight)
-lmG21_3 = dataLM %>% filter(Head == "VERB", Dependent == "NOUN", Dependency == "obj") %>% select(Language, FileName, DH_Weight)%>% rename(DH_obj = DH_Weight)
-lmG21 = merge(lmG21_1, lmG21_2, by=c("Language", "FileName"))
-lmG21 = merge(lmG21,   lmG21_3, by=c("Language", "FileName"))
-summary(lmG21[lmG21$DH_advmod < 0,])
-# there seems to be nothing here (sounds more like dependency length)
-
-#Head == "VERB", Dependent %in% c("NOUN", "PRON")) %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
-
-
-
-# 23. "If in apposition the proper noun usually precedes the common noun, then the language is one in which the governing noun precedes its dependent genitive. With much better than chance frequency, if the common noun usually precedes the proper noun, the dependent genitive precedes its governing noun."
-
-# 24. "If the relative expression precedes the noun either as the only construction or as an alternate construction, either the language is postpositional, or the adjective precedes the noun or both."
-
-
-
-
-##############################
-# 25. "If the pronominal object follows the verb, so does the nominal object."
-lmG25 = dataLM %>% filter(Head == "VERB", Dependent %in% c("NOUN", "PRON")) %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
-
-lmG25 = lmG25 %>% filter(Dependency %in% c("obj"))
-
-lmG25 = dcast(setDT(lmG25), Language +FileName ~ Dependency + Dependent, value.var=c("DH_Weight"), na.rm=TRUE)
-
-summary(lmG25 %>% filter(obj_PRON < 0))
-# expect obj_NOUN to be negative, but there is nothing
-
-
-
-
-
-# prepositions vs postpositions
-
-
+## prepositions vs postpositions
 prePostpos = dataLM %>% filter(Head == "NOUN", Dependency == "case", Dependent == "ADP") %>%group_by(Dependency, Dependent, Language, FileName, AverageLoss)  %>% summarise(DH_Weight = weighted.mean(DH_Weight, Count, na.rm=TRUE), DistanceWeight = weighted.mean(DistanceWeight, Count), DH = weighted.mean(DH, Count, na.rm=TRUE), Count=sum(Count))
 
 
@@ -631,13 +635,111 @@ library(data.table)
 prePostpos = dcast(setDT(prePostpos), Language +FileName ~ 1, value.var=c("DistanceWeight", "DH_Weight"), na.rm=TRUE)
 
 prePostposByLan = prePostpos %>% group_by(Language) %>% summarise(DH_Weight_SD = sd(DH_Weight, na.rm=TRUE), DH_Weight = mean(DH_Weight, na.rm=TRUE), DistanceWeight = mean(DistanceWeight, na.rm=TRUE))
-# cor(prePostposByLan$DH_Weight, prePostposByLan$DistanceWeight)
-# `when before the head, bind more strongly'
+## cor(prePostposByLan$DH_Weight, prePostposByLan$DistanceWeight)
+## `when before the head, bind more strongly'
 
 #################################
 
 
 
+
+
+
+
+
+
+
+
+#dataLM = data[data$ModelName == "readDataDistEnglishGPULMength.py",]
+#lmDistances = as.data.frame(dataLM %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
+
+#dataEnglish = data[data$ModelName == "inferWeightsForEnglish.py",]
+#englishDistances = as.data.frame(dataEnglish %>% group_by(Dependency) %>% summarise(DistanceWeight = weighted.mean(DistanceWeight, Count)))
+
+
+#data = merge(data, dataEnglish %>% rename(DistanceWeightEnglish=DistanceWeight,DH_WeightEnglish = DH_Weight) %>% select(Head, Dependency, Dependent, DistanceWeightEnglish, DH_WeightEnglish), by=c("Head", "Dependency", "Dependent"))
+
+## [1] "Head"           "Dependency"     "Dependent"      "FileName"      
+## [5] "ModelName"      "Quality"        "Direction"      "DistanceWeight"
+## [9] "DH_Weight"      "Counter"        "Count"         
+
+
 ```
+
+
+
+# Values for other Dependencies
+
+Here I'm plotting averaged dependent-first (DH) and distance logits, averaged by head POS, dependent POS, and dependency label.
+While there are things that make sense, this data is a bit hard to directly interpret.
+I plot the By-Dependents version first, since it seems easiest to interpret.
+
+
+## Averaged Distance Predictions across Dependents
+Here I'm plotting the inferred distance logits.
+
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossDependents(dataLM)
+```
+
+### averaged over languages
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossDependentsAveragedOverLanguages(dataLM)
+```
+
+## Averaged Order Predictions across Dependents
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalOrderPredictionsAcrossDependents(dataLM)
+```
+
+
+
+
+
+
+
+
+
+## Averaged Distance Predictions across Heads
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossHeads(dataLM)
+```
+
+### averaged over languages
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossHeadsAveragedOverLangs(dataLM)
+```
+
+## Averaged Order Predictions across Heads
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalOrderPredictionsAcrossHeads(dataLM)
+```
+
+## Averaged Distance Predictions across Dependencies
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossDependencies(dataLM)
+```
+
+### averaged over Languages
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossDependenciesAveraged(dataLM)
+```
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossDependenciesAveraged2(dataLM)
+```
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalDistancePredictionsAcrossDependenciesAveraged3(dataLM)
+```
+
+## Averaged Order Predictions across Dependencies
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalOrderPredictionsAcrossDependencies(dataLM)
+```
+
+### averaged over Languages
+```{r, echo=FALSE, fig.width=13, fig.height=3}
+generalOrderPredictionsAcrossDependenciesAveraged(dataLM)
+```
+
 
 

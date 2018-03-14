@@ -1,0 +1,90 @@
+---
+title: Exploring Word Order Predictions of Theories of Communicatively Efficient Language Production
+author: Michael Hahn
+date: March 2018
+output:
+  html_document:
+    toc: true
+---
+
+
+
+<style>
+img {
+    max-width: 100%;
+
+    /* other options:
+    max-width: none;
+    max-width: 700px;
+    max-width: 9in;
+    max-width: 25cm;
+    etc
+    */
+}
+</style>
+
+
+
+```{r, echo=FALSE}
+source('readData.r')
+```
+
+
+# By-POS Slopes for Surprisal and UID Measures
+```{r, echo=FALSE}
+
+
+
+# first extract the POS part of the dataset
+POS_slopes = data %>% filter(!is.na(Var_Slope_Surp_Word)) 
+POS_slopes = POS_slopes %>% select(ModelName,FileName, RegType, Language, POS, Mean_Slope_Surp_POS, Var_Slope_Surp_POS, Var_Slope_Surp_Word, Mean_Slope_Surp_Word, Var_Slope_UID, Mean_Slope_UID) %>% mutate(Surp_POS_t = Mean_Slope_Surp_POS / sqrt(abs(Var_Slope_Surp_POS)), Surp_Word_t = Mean_Slope_Surp_Word / sqrt(abs(Var_Slope_Surp_Word)), UID_t = Mean_Slope_UID / sqrt(abs(Var_Slope_UID)))
+
+#POS_slopes[order(POS_slopes$Surp_POS_t),]
+
+##############################
+```
+
+Error bars indicate estimated posterior standard deviations.
+As the effects of all measures (surprisal, dependency length, etc.) are negative, positive values of the random slopes indicate a weakened effect for a given POS category.
+
+## POS Surprisal
+```{r, echo=FALSE, fig.width=10, fig.height=3}
+for(language in unique(POS_slopes$Language)) {
+dodge = position_dodge(.9)
+plot = ggplot(POS_slopes %>% filter(Language==language), aes(x=POS,y=Mean_Slope_Surp_POS, fill=RegType, color=FileName)) +
+  geom_errorbar(aes(ymin=Mean_Slope_Surp_POS-sqrt(abs(Var_Slope_Surp_POS)), ymax=Mean_Slope_Surp_POS+sqrt(abs(Var_Slope_Surp_POS))), position=dodge, width=.25) +
+  geom_bar(stat="identity", position=dodge) +
+  facet_wrap( ~ Language) 
+print(plot)
+}
+```
+
+## Word Surprisal
+```{r, echo=FALSE, fig.width=10, fig.height=3}
+dodge = position_dodge(.9)
+for(language in unique(POS_slopes$Language)) {
+plot = ggplot(POS_slopes %>% filter(Language==language), aes(x=POS,y=Mean_Slope_Surp_Word, fill=RegType, color=FileName)) +
+  geom_errorbar(aes(ymin=Mean_Slope_Surp_Word-sqrt(abs(Var_Slope_Surp_Word)), ymax=Mean_Slope_Surp_Word+sqrt(abs(Var_Slope_Surp_Word))), position=dodge, width=.25) +
+  geom_bar(stat="identity", position=dodge) +
+  facet_wrap( ~ Language) 
+print(plot)
+}
+```
+
+## Squared Deviation of Suprisal
+```{r, echo=FALSE, fig.width=10, fig.height=3}
+dodge = position_dodge(.9)
+for(language in unique(POS_slopes$Language)) {
+plot = ggplot(POS_slopes %>% filter(Language==language), aes(x=POS,y=Mean_Slope_UID, fill=RegType, color=FileName)) +
+  geom_errorbar(aes(ymin=Mean_Slope_UID-sqrt(abs(Var_Slope_UID)), ymax=Mean_Slope_UID+sqrt(abs(Var_Slope_UID))), position=dodge, width=.25) +
+  geom_bar(stat="identity", position=dodge) +
+  facet_wrap( ~ Language) 
+print(plot)
+}
+```
+
+
+
+
+
+

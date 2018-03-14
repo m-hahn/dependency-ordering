@@ -1,0 +1,155 @@
+---
+title: Exploring Word Order Predictions of Theories of Communicatively Efficient Language Production
+author: Michael Hahn
+date: March 2018
+output:
+  html_document:
+    toc: true
+---
+
+
+
+<style>
+img {
+    max-width: 100%;
+
+    /* other options:
+    max-width: none;
+    max-width: 700px;
+    max-width: 9in;
+    max-width: 25cm;
+    etc
+    */
+}
+</style>
+
+
+
+```{r, echo=FALSE}
+source('readData.r')
+```
+
+```{r, echo=FALSE}
+source('processRealWeights.r')
+```
+
+# Ordering Rules Controlling for Different Metrics
+
+```{r, echo=FALSE}
+
+
+
+dataResid = data[data$Objective == "residual",]
+# cor(dataResid$DH_Mean, dataResid$Real_DH_Mean, use="complete")
+#cor(dataResid$Distance_Mean, dataResid$Real_Distance_Mean, use="complete")
+
+# sometimes Pyro sometimes gives negative variances,  well I should just transform them into something more stable myself
+dataResid = dataResid %>% mutate(DH_Sigma = abs(DH_Sigma), Distance_Sigma = abs(Distance_Sigma), Real_DH_Sigma = abs(Real_DH_Sigma), Real_Distance_Sigma = abs(Real_Distance_Sigma))
+
+dataResid = dataResid %>% mutate(DH_t = DH_Mean/sqrt(abs(DH_Sigma)), Distance_t = Distance_Mean/sqrt(abs(Distance_Sigma)), Real_DH_t = Real_DH_Mean/sqrt(abs(Real_DH_Sigma)), Real_Distance_t = Real_Distance_Mean/sqrt(abs(Real_Distance_Sigma)))
+dataResid = dataResid %>% filter(!is.na(DH_Mean))
+bigT = (dataResid[abs(dataResid$Distance_t - dataResid$Real_Distance_t) > 0.1,])
+
+bigTFiltered = bigT[order(bigT$Distance_t),] %>% select(ModelName, RegType, Language, Head, Dependency, Dependent, Distance_t , Real_Distance_t)
+#bigTFiltered = bigT[order(bigT$Distance_t),] %>% select(Head, Dependency, Dependent, Distance_Mean , Real_Distance_Mean)
+```
+
+## Distance Logits
+
+### dependencies whose weights are `significant' according to only maximum-likelihood
+Ordered by the quotient of t-values
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(bigT$Language)) {
+  agg = bigT %>% filter(Language==language, abs(Real_Distance_t) > 4)
+  agg = agg[order(abs(agg$Distance_t/agg$Real_Distance_t)),]
+  for(filename in unique(agg$FileName)) {
+    agg2 = agg %>% filter(FileName == filename)
+    agg2 = agg2[(1:min(30, nrow(agg2))),]
+
+    agg2 = agg2 %>% mutate(Distance_Sigma = Distance_Sigma/var(Distance_Mean, na.rm=TRUE), Distance_Mean = Distance_Mean/sd(Distance_Mean, na.rm=TRUE))
+    agg2 = agg2 %>% mutate(Real_Distance_Sigma = Real_Distance_Sigma/var(Real_Distance_Mean, na.rm=TRUE), Real_Distance_Mean = Real_Distance_Mean/sd(Real_Distance_Mean, na.rm=TRUE))
+
+    agg3 = rbind(agg2) %>% mutate(Distance_Mean = Real_Distance_Mean, Distance_Sigma = Real_Distance_Sigma)
+    agg3$RegType = "Baseline"
+    agg2 = rbind(agg2, agg3)
+
+
+
+    plot = ggplot(agg2, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=Distance_Mean, fill=RegType)) +
+      geom_errorbar(aes(ymin=Distance_Mean-sqrt(abs(Distance_Sigma)),ymax=Distance_Mean+sqrt(abs(Distance_Sigma))), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap( ~ Language + ModelName + FileName + Counter) 
+    print(plot)
+#    plot = ggplot(agg2, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=Real_Distance_Mean)) +
+#      geom_errorbar(aes(ymin=Real_Distance_Mean-sqrt(abs(Real_Distance_Sigma)),ymax=Real_Distance_Mean+sqrt(abs(Real_Distance_Sigma))), position=dodge, width=.25) +
+#      geom_bar(stat="identity", position=dodge) +
+#      facet_wrap( ~ Language + ModelName + FileName + Counter) 
+#    print(plot)
+  }
+}
+```
+
+### dependencies whose weights are `significant' according to only controlled model
+```{r, echo=FALSE}
+bigTFiltered %>% filter(abs(Distance_t) >= 4 & abs(Real_Distance_t) < 1)
+```
+
+### dependencies whose weights are more `significant' according to controlled model
+Ordered by the quotient of t-values (opposite)
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(bigT$Language)) {
+  agg = bigT %>% filter(Language==language, abs(Real_Distance_t) > 4)
+  agg = agg[order(-abs(agg$Distance_t/agg$Real_Distance_t)),]
+  for(filename in unique(agg$FileName)) {
+    agg2 = agg %>% filter(FileName == filename)
+    agg2 = agg2[(1:min(nrow(agg2),30)),]
+
+    agg2 = agg2 %>% mutate(Distance_Sigma = Distance_Sigma/var(Distance_Mean), Distance_Mean = Distance_Mean/sd(Distance_Mean))
+    agg2 = agg2 %>% mutate(Real_Distance_Sigma = Real_Distance_Sigma/var(Real_Distance_Mean), Real_Distance_Mean = Real_Distance_Mean/sd(Real_Distance_Mean))
+
+
+    agg3 = rbind(agg2) %>% mutate(Distance_Mean = Real_Distance_Mean, Distance_Sigma = Real_Distance_Sigma)
+    agg3$RegType = "Baseline"
+    agg2 = rbind(agg2, agg3)
+
+    plot = ggplot(agg2, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=Distance_Mean, fill=RegType)) +
+      geom_errorbar(aes(ymin=Distance_Mean-sqrt(abs(Distance_Sigma)),ymax=Distance_Mean+sqrt(abs(Distance_Sigma))), position=dodge, width=.25) +
+      geom_bar(stat="identity", position=dodge) +
+      facet_wrap( ~ Language + ModelName + FileName + Counter) 
+    print(plot)
+#    plot = ggplot(agg2, aes(x=paste(Head,Dependency,Dependent,sep="\n"),y=Real_Distance_Mean)) +
+#      geom_errorbar(aes(ymin=Real_Distance_Mean-sqrt(abs(Real_Distance_Sigma)),ymax=Real_Distance_Mean+sqrt(abs(Real_Distance_Sigma))), position=dodge, width=.25) +
+#      geom_bar(stat="identity", position=dodge) +
+#      facet_wrap( ~ Language + ModelName + FileName + Counter) 
+#    print(plot)
+  }
+}
+```
+
+## Direction Logits
+```{r, echo=FALSE}
+
+
+bigT = dataResid #(dataResid[abs(dataResid$DH_t - dataResid$Real_DH_t) > 1.0,])
+#
+#bigTFiltered = bigT[order(bigT$DH_t),] %>% select(RegType, Language, Head, Dependency, Dependent, DH_t , Real_DH_t)
+##bigTFiltered = bigT[order(bigT$DH_t),] %>% select(Head, Dependency, Dependent, DH_Mean , Real_DH_Mean)
+#
+## show dependencies whose weights are `significant' according to only maximum-likelihood
+#bigTFiltered %>% filter(abs(DH_t) < 1 & abs(Real_DH_t) >= 4)
+#
+## show dependencies whose weights are `significant' according to only the controlled model
+#bigTFiltered %>% filter(abs(DH_t) >= 4 & abs(Real_DH_t) < 1)
+#
+## show dependencies whose weights are `significant' according to both
+#bigTFiltered %>% filter(abs(DH_t) >= 4 & abs(Real_DH_t) >= 4)
+#
+
+# TODO control for the frequency of the different things. only want to say something about high-frequency dependencies.
+##################
+
+```
+
+

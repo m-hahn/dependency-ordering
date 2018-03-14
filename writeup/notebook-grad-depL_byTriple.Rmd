@@ -1,0 +1,144 @@
+---
+title: Exploring Word Order Predictions of Theories of Communicatively Efficient Language Production
+author: Michael Hahn
+date: March 2018
+output:
+  html_document:
+    toc: true
+---
+
+
+
+<style>
+img {
+    max-width: 250%;
+
+    /* other options:
+    max-width: none;
+    max-width: 700px;
+    max-width: 9in;
+    max-width: 25cm;
+    etc
+    */
+}
+</style>
+
+
+
+```{r, echo=FALSE}
+source('readData.r')
+```
+
+```{r, echo=FALSE}
+source('processRealWeights.r')
+data = data %>% filter(Head != "PUNCT", Dependent != "PUNCT")
+data = data %>% filter(Counter > 20000)
+
+```
+
+
+# Gradients for Dependency Length
+
+Here I'm plotting approximate partial derivatives of expected total dependency length w.r.t. the parameters alpha und beta of the ordering model.
+
+
+
+```{r, echo=FALSE}
+DepL_grads = data %>% filter(ObjectiveName == "gradients_DepL") %>% select(PercentageOfLanguage, TotalCount, TotalCountCoarse, Counter, RegType, ModelName, FileName, Language, FileName, Head, Dependency, CoarseDependency, Dependent,   D_DepL_DH_Weight, D_DepL_DistanceWeight, Count, Real_DH_Mean, Real_Distance_Mean)
+```
+
+
+
+# Average Gradients by Dependency Triple
+
+```{r, echo=FALSE}
+DepL_grads_by_Dependency = DepL_grads %>% group_by(Counter, ModelName, FileName, Language, Head, Dependent, Dependency) # %>% summarise( = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
+
+DepL_grads_by_Dependency = as.data.frame(DepL_grads_by_Dependency)
+```
+
+## Gradients w.r.t. Dependent-First Logit
+
+The 30 partial derivatives with the largest absolute value are shown.
+
+More positive numbers mean that ordering this dependency as Dependent-First more frequently would increase average per-sentence dependency length.
+For each language, the plot is colored by the actual Dependent-First Logit. 
+
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_grads_by_Dependency$Language)) {
+  agg = DepL_grads_by_Dependency %>% filter(Language==language)
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg3 = agg[order(-abs(agg$D_DepL_DH_Weight)),]
+  agg3 = agg3[(1:min(nrow(agg3),30)),]
+  agg3 = agg3 %>% mutate(Triple = paste(Head, Dependency, Dependent, sep="\n"))
+  plot = ggplot(agg3, aes(x=Triple,y=D_DepL_DH_Weight, color=FileName, fill=Real_DH_Mean)) +
+    facet_wrap(~ Language) +
+    geom_bar(stat="identity", position=dodge)
+  print(plot)
+#  plot = ggplot(agg3, aes(x=Triple,y=D_DepL_DH_Weight, color=FileName, fill=Real_Distance_Mean)) +
+#    facet_wrap(~ Language) +
+#    geom_bar(stat="identity", position=dodge)
+#  print(plot)
+#  plot = ggplot(agg3, aes(x=Triple,y=D_DepL_DH_Weight, color=FileName, fill=D_DepL_DistanceWeight)) +
+#    facet_wrap(~ Language) +
+#    geom_bar(stat="identity", position=dodge)
+#  print(plot)
+}
+#DepL_grads[order(DepL_grads$Slope_DepLength_t),]
+#DepL_grads = DepL_grads %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+## Gradients w.r.t. Distance Logit
+
+The 30 partial derivatives with the largest absolute value are shown.
+
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_grads_by_Dependency$Language)) {
+  agg = DepL_grads_by_Dependency %>% filter(Language==language)
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+  agg3 = agg[order(-abs(agg$D_DepL_DH_Weight)),]
+  agg3 = agg3[(1:min(nrow(agg3),30)),]
+  agg3 = agg3 %>% mutate(Triple = paste(Head, Dependency, Dependent, sep="\n"))
+  plot = ggplot(agg3, aes(x=Triple,y=D_DepL_DistanceWeight, color=FileName, fill=Real_Distance_Mean)) +
+    facet_wrap(~ Language) +
+    geom_bar(stat="identity", position=dodge)
+  print(plot)
+#  plot = ggplot(agg3, aes(x=Triple,y=D_DepL_DistanceWeight, color=FileName, fill=Real_DH_Mean)) +
+#    facet_wrap(~ Language) +
+#    geom_bar(stat="identity", position=dodge)
+#  print(plot)
+#  plot = ggplot(agg3, aes(x=Triple,y=D_DepL_DistanceWeight, color=FileName, fill=D_DepL_DH_Weight)) +
+#    facet_wrap(~ Language) +
+#    geom_bar(stat="identity", position=dodge)
+#  print(plot)
+}
+#DepL_grads[order(DepL_grads$Slope_DepLength_t),]
+#DepL_grads = DepL_grads %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+
+# Findings
+
+In some languages, there is a correlation between derivatives w.r.t. order and distance logits:
+```{r, echo=FALSE, fig.width=25, fig.height=5}
+for(language in unique(DepL_grads_by_Dependency$Language)) {
+  agg = DepL_grads_by_Dependency %>% filter(Language==language)
+  cat("\n###########\n")
+  cat(language)
+  cat("\n")
+print(cor.test(agg$D_DepL_DH_Weight, agg$D_DepL_DistanceWeight))
+}
+#DepL_grads[order(DepL_grads$Slope_DepLength_t),]
+#DepL_grads = DepL_grads %>% filter(!(FileName %in% c("4457600", "6037474")))
+```
+
+
+
+On the other hand, there appear to be no correlations between the derivatives and the values of the logits.
+
+

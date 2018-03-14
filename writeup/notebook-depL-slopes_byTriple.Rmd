@@ -11,7 +11,7 @@ output:
 
 <style>
 img {
-    max-width: 250%;
+    max-width: 150%;
 
     /* other options:
     max-width: none;
@@ -25,11 +25,11 @@ img {
 
 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, warning=FALSE, output=FALSE}
 source('readData.r')
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, warning=FALSE, output=FALSE}
 source('processRealWeights.r')
 data = data %>% filter(Head != "PUNCT", Dependent != "PUNCT")
 data = data %>% filter(Counter > 20000)
@@ -37,13 +37,16 @@ data = data %>% filter(Counter > 20000)
 ```
 
 
-# Random Slopes for Dependency Length
+# Slopes for Dependency Length (by dependency triple)
 
+Here, I show fitted per-dependency-triple slopes for dependency length, first by language and then for all languages together.
+A more negative slope indicates above-average effect of dependency length.
+Only the 15 most frequent triples are shown per language.
+For each language, I show the plots colored by (1) the Dependent-First logit for the language, (2) the Distance logit, (3) the fixed effects that were included the model, among DepL (dependence length), surprisal, and ID (Variance of Surprisal (for UID)).
 
-Throughout this section, colors indicate the degree to which the dependency is head-final in the language, measured as a logit (positive = more head-final than head-initial).
+In general, slopes tend to become weaker when controlling for surprisal than when dependency length is the only fixed effect.
 
-Finding: When controlling for surprisal (the `All' models), strong effects of Dependency Length occur mostly for head-initial dependencies.
-
+'FileName' indicates different runs of the model fitting procedure.
 
 
 ```{r, echo=FALSE}
@@ -52,9 +55,6 @@ DepL_slopes = data %>% filter(!is.na(Mean_Slope_DepLength)) %>% select(Percentag
 
 
 
-# Average Slopes by Dependency Triple
-
-Only 20 strongest coefficients shown.
 ```{r, echo=FALSE}
 DepL_slopes_by_Dependency = DepL_slopes %>% group_by(Counter, RegType, ModelName, FileName, Language, FileName, Head, Dependent, Dependency) %>% summarise(Mean_Slope_DepLength = weighted.mean(Mean_Slope_DepLength, Count, na.rm=TRUE), Var_Slope_DepLength = weighted.mean(Var_Slope_DepLength, Count, na.rm=TRUE), Real_DH_Mean = weighted.mean(Real_DH_Mean, Count, na.rm=TRUE), Real_Distance_Mean = weighted.mean(Real_Distance_Mean, Count, na.rm=TRUE), Count = sum(Count)) %>% mutate(Slope_DepLength_t = (Mean_Slope_DepLength / sqrt(Var_Slope_DepLength)))
 
@@ -63,7 +63,7 @@ DepL_slopes_by_Dependency = as.data.frame(DepL_slopes_by_Dependency)
 
 
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+```{r, echo=FALSE, fig.width=15, fig.height=4}
 for(language in unique(DepL_slopes_by_Dependency$Language)) {
   agg = DepL_slopes_by_Dependency %>% filter(Language==language)
   cat("\n###########\n")
@@ -102,9 +102,11 @@ for(language in unique(DepL_slopes_by_Dependency$Language)) {
 #DepL_slopes = DepL_slopes %>% filter(!(FileName %in% c("4457600", "6037474")))
 ```
 
-## Across Languages
+# Across Languages
 
-```{r, echo=FALSE, fig.width=25, fig.height=5}
+
+
+```{r, echo=FALSE, fig.width=15, fig.height=4}
 
 agg = rbind(DepL_slopes)
 
